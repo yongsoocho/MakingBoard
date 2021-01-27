@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://cdn.jsdelivr.net/npm/vue@2.6.0"></script>
+	</head>
+	<body>
+		<div id="app">
+			<input type="file" v-on:change="loadData"/>
+			<button v-on:click="saveBoardList">
+				게시판 저장
+			</button>
+			<my-board-list v-if="listOK" v-bind:object="dataArray['board']"
+						   v-on:board-read="boardRead"
+						   v-on:board-write="boardWrite"
+						   v-on:board-delete="boardDelete">
+			</my-board-list>
+
+			<my-board-read v-if="readOK" v-bind:object="boardInfo"
+						   v-on:board-list="boardList">
+			</my-board-read>
+
+			<my-board-write v-if="writeOK" v-on:board-list="boardList"
+							v-on:board-save="boardSave">
+			</my-board-write>
+		</div>
+		
+		<script>
+			
+			const MyBoardList = {
+				props: ["object"],
+				template:`<div><table id="list">\n` + //making TableHead
+				`<tr>\n` +
+				`	<th style="width:50px>글번호</th>\n` +
+				`	<th>글제목</th>` +
+				`	<th style="width:50px">조회수</th>\n` +
+				`	<th style="width:70px"></th>\n` +
+				`</tr>\n` +
+				
+				`<tr v-for="item in object" v-bind:key="item.no">` + //making TableRow
+				`	<td>{{item.no}}</td>` +
+				`	<td v-on:click="boardRead(item)">{{item.title}}</td>` +
+				`	<td>{{item.view}}</td>` +
+				`	<td><button v-on:click="boardDelete(item.no)">삭제</button></td>` +
+				`</tr>` +
+				`</table>` +
+				
+				`<button v-on:click="boardWrite" style="float:right;">글쓰기</button></div>`,
+				
+				methods: {
+					boardRead: function(info){
+						this.$emit('board-read', info);
+					},
+					boardWrite: function(){
+						this.$emit('board-write');
+					},
+					boardDelete: function(no){
+						this.$emit('board-delete', no);
+					}
+				}
+			};
+			
+			const MyBoardRead = {
+				props:["object"],
+				template:`<div><table id="list">\n` +
+				`<tr>\n` +
+				`	<td style="width:50px">글제목</td>\n` +
+				`	<td>{{object.title}}</td>\n` +
+				`</tr>\n` +
+				`<tr style="height:300px">\n` +
+				`	<td colspan="2">{{object.content}}</td>\n` +
+				`</tr>\n` +
+				`</table>` +
+				`<button v-on:click="boardList" style="float:right;">목록</button>` +
+				`</div>`,
+				
+				methods:{
+					boardList: function(){
+						this.$emit('board-list');
+					}
+				}
+			};
+			
+			const MyBoardWrite = {
+				template:`<div>\n` +
+				`<table id="list">\n` +
+				`	<tr>\n` +
+				`		<td>글제목</td>\n` +
+				`		<td><input type="text" v-model="title" style="width:100%"></td>\n` +
+				`	</tr>\n` +
+				`	<tr>\n` +
+				`		<td span="2"><textarea v-model="content" style="width:100%"></textarea></td>\n` +
+				`	</tr>\n` +
+				`</table>\n` +
+				`<button v-on:click="boardList" style="float: right;">목록</button>` +
+				`<button v-on:click="boardSave" style="float: right;">저장</button>` +
+				`</div`,
+				methods: {
+					boardList: function(){
+						this.$emit('board-list');
+					},
+					boardSave: function(){
+						this.$emit('board-save', this.title, this.content);
+					}
+				},
+				data: function(){
+					return{
+						title:"",
+						content:""
+					}
+				}
+			};
+			
+			new Vue({
+				el:'#app',
+				data:{
+					dataArray:[],
+					listOK:false,
+					readOK:false,
+					writeOK:false,
+					boardInfo:{}
+				},
+				methods:{
+					loadData: function(e){
+						file = e.target.files[0];
+						if(file){
+							const reader = new FileReader();
+							const vm = this;
+							reader.readAsText(file);
+							reader.onload = function(event){
+								vm.dataArray = JSON.parse(event.target.result);
+							};
+							reader.onloadend = function(event){
+								if(vm.dataArray != null && vm.dataArray['board'].length > 0){
+									vm.listOK = true;
+								}
+								else{
+									vm.listOK = false;
+								}
+							}
+						}
+					},
+					boardList: function(){
+						this.readOK=false;
+						this.writeOK=false;
+						this.listOK=true;
+					},
+					boardWrite: function(){
+						this.listOK=false;
+						this.readOK=false;
+						this.writeOK=true;
+					},
+					boardRead: function(info){
+						this.listOK=false;
+						this.readOK=true;
+						this.boardInfo=info;
+						
+						for(let i = 0; i < this.dataArray['board'].length; i++){
+							if(this.dataArray['board'][i].no == info.no){
+								this.dataArray['board'][i].view = parseInt(this.dataArray['board'][i].view) + 1;
+							}
+						}
+					},
+					boardSave: function(title, content){
+						let no = 1;
+						if(this.dataArray['board'].length != 0){
+							no = parseInt(this.dataArray['board'][this.dataArray['board'].length - 1].no) + 1;
+						}
+						let board_info = {
+							no: no,
+							title: title,
+							content: content,
+							view: "1"
+						};
+						
+						this.dataArray['board'].push(board_info);
+						this.wirteOK = false;
+						this.readOK = false;
+						this.listOK = true;
+					},
+					boardDelete: function(no){
+						for(let i = 0; this.dataArray['board'].length; i ++){
+							if(this.dataArray['board'][i].no == no){
+								this.dataArray['board'].splice(i, 1);
+							}
+						}
+					},
+					saveBoardList: function(){
+						let data = this.dataArray;
+						
+						if(data.length == 0){
+							alert('저장할 내용 없음');
+							return;
+						}
+						const filename = 'boardlist.json';
+						
+						if(typeof data == "object"){
+							data = JSON.stringify(data, undefined, 4);
+						}
+						
+						let blob = new Blob([data], {type: 'text/json'}),
+							e = document.createEvent('MouseEvents'),
+							a = document.createElement('a');
+						
+						a.download = filename;
+						a.href = window.URL.createObjectURL(blob);
+						a.dataset.downloadurl = ['text/json', a.download, a.href].join(':');
+						e.initMouseEvent('click', true, false, window , 0)
+					}
+				},
+				components:{
+					'my-board-list':MyBoardList,
+					'my-board-read':MyBoardRead,
+					'my-board-write':MyBoardWrite
+				}
+			})
+		</script>
+	</body>
+</html>
